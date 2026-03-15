@@ -5,10 +5,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi import _rate_limit_exceeded_handler
 
 from app.api import activation, admin, mods, requests
 from app.core.config import get_settings
 from app.core.database import Base, engine
+from app.core.rate_limit import limiter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,6 +26,9 @@ app = FastAPI(
     version="1.0.0",
     description="ETS2 Paid Mod Distribution Backend",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(Exception)
@@ -59,10 +66,10 @@ def migrate_mods_table() -> None:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[settings.ADMIN_PANEL_ORIGIN],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-License-Key", "X-PC-ID"],
 )
 
 app.include_router(admin.router)

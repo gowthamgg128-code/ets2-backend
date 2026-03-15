@@ -10,6 +10,7 @@ from app.models.license import License
 from app.models.license_key import LicenseKey
 from app.models.mod import Mod
 from app.schemas.mod import ModDownloadResponse, ModListResponse
+from app.services.storage import generate_download_url
 
 router = APIRouter(prefix="/mods", tags=["mods"])
 logger = logging.getLogger(__name__)
@@ -29,16 +30,14 @@ def download_mod(
     x_pc_id: str | None = Header(None, alias="X-PC-ID"),
     db: Session = Depends(get_db),
 ):
-    """Return GitHub download URL after license checks."""
+    """Return the stored mod download URL after license checks."""
     if not x_license_key or not x_pc_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid license",
         )
 
-    license_key = db.query(LicenseKey).filter(
-        LicenseKey.key == x_license_key
-    ).first()
+    license_key = db.query(LicenseKey).filter(LicenseKey.key == x_license_key).first()
     if not license_key:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -74,10 +73,26 @@ def download_mod(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Mod file not found",
         )
+    if not mod.checksum or not mod.size:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Mod metadata incomplete",
+        )
 
     logger.info(
         "download request validated: mod_id=%s pc_id=%s",
         mod_id,
         x_pc_id,
     )
-    return {"download_url": mod.file_url}
+    storage_key = mod.encrypted_file_path
+    if not storage_key:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Mod storage key missing",
+        )
+
+    return {
+        "download_url": generate_download_url(storage_key),
+        "checksum": mod.checksum,
+        "size": mod.size,
+    }
