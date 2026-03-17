@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi import _rate_limit_exceeded_handler
 
-from app.api import activation, admin, mods, requests
+from app.api import activation, admin, mods, requests, authorized_users
 from app.core.config import get_settings
 from app.core.database import Base, engine
 from app.core.rate_limit import limiter
@@ -76,6 +76,7 @@ app.include_router(admin.router)
 app.include_router(mods.router)
 app.include_router(requests.router)
 app.include_router(activation.router)
+app.include_router(authorized_users.router)
 
 
 @app.get("/")
