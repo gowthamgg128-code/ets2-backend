@@ -32,11 +32,20 @@ def add_user(phone: str, db: Session = Depends(get_db)):
 @router.get("/admin/users")
 def get_users(db: Session = Depends(get_db)):
 
-    users = db.execute(
+    result = db.execute(
         text("SELECT * FROM authorized_users ORDER BY created_at DESC")
-    ).fetchall()
+    )
 
-    return users
+    users = result.fetchall()
+
+    return [
+        {
+            "id": str(row.id),
+            "phone": row.phone,
+            "created_at": row.created_at
+        }
+        for row in users
+    ]
 
 
 # VERIFY PHONE (LAUNCHER)
