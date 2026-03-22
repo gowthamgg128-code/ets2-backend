@@ -156,6 +156,7 @@ def upload_mod(
             version=payload.version,
             description=payload.description,
             file_url=payload.file_url,
+            image_url=payload.image_url,
             size=payload.size,
             checksum=payload.checksum,
         )
