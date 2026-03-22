@@ -189,6 +189,7 @@ def upload_mod(
             description=mod_data.description,
             encrypted_file_path=storage_key,
             file_url=mod_data.file_url,
+            image_url=mod_data.image_url,
             size=mod_data.size,
             checksum=mod_data.checksum,
             is_active=True,
