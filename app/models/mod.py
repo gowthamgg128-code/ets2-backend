@@ -15,10 +15,14 @@ class Mod(Base):
     name = Column(String(255), nullable=False, index=True)
     version = Column(String(100), nullable=False)
     description = Column(String(1000), nullable=True)
+
     encrypted_file_path = Column(String(500), nullable=True)  # Legacy, unused for downloads.
     file_url = Column(String(1000), nullable=True)
+
+    image_url = Column(String(1000), nullable=True)  # ✅ NEW FIELD
+
     size = Column(BigInteger, nullable=True)
     checksum = Column(String(64), nullable=True)
+
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
