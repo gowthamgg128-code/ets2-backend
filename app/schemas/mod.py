@@ -15,6 +15,7 @@ class ModCreate(BaseModel):
     file_url: str
     size: int
     checksum: str
+    image_url: str | None = None  # ✅ NEW
 
     @field_validator("name", "version")
     @classmethod
@@ -80,6 +81,7 @@ class ModResponse(BaseModel):
     file_url: str | None = None
     size: int | None = None
     checksum: str | None = None
+    image_url: str | None = None  # ✅ NEW
     is_active: bool
     created_at: datetime
 
@@ -95,6 +97,7 @@ class ModListResponse(BaseModel):
     version: str
     description: str | None = None
     size: int | None = None
+    image_url: str | None = None  # ✅ NEW
 
     class Config:
         from_attributes = True
