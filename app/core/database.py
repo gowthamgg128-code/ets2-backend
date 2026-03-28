@@ -2,6 +2,7 @@
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.pool import NullPool
 from .config import get_settings
 
 settings = get_settings()
@@ -19,26 +20,19 @@ _connect_args = {}
 if database_url.startswith("postgresql") and "sslmode=" not in database_url:
     _connect_args["sslmode"] = "require"
 
-# Add keepalive settings to detect dead connections faster
 _connect_args.update({
     "keepalives": 1,
-    "keepalives_idle": 30,       # Send keepalive after 30s idle
-    "keepalives_interval": 10,   # Retry every 10s
-    "keepalives_count": 5,       # Give up after 5 failed keepalives
-    "connect_timeout": 10,       # Fail fast instead of hanging
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 5,
+    "connect_timeout": 10,
 })
 
 engine = create_engine(
     database_url,
     echo=settings.DEBUG,
     connect_args=_connect_args,
-    pool_pre_ping=True,      # Test connection before using it
-    pool_recycle=300,        # ← Change from 1800 to 300 (5 min)
-                             #   Supabase kills idle connections
-                             #   around 5-10 min, so recycle before that
-    pool_size=3,             # ← Add this: keep only 3 persistent connections
-    max_overflow=2,          # ← Add this: allow 2 extra under load = 5 max total
-    pool_timeout=30,         # ← Add this: raise error after 30s wait (not hang forever)
+    poolclass=NullPool,   # ← THE KEY FIX: no pool, fresh connection per request
 )
 
 SessionLocal = sessionmaker(
