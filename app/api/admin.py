@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import func
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin
@@ -91,6 +92,12 @@ def login(
 
     try:
         admin = db.query(Admin).filter(Admin.username == credentials.username).first()
+    except OperationalError:
+        logger.exception("Database unavailable during login for username=%s", credentials.username)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable",
+        )
     except Exception:
         logger.exception("Database error during login query for username=%s", credentials.username)
         raise HTTPException(
@@ -214,6 +221,12 @@ def upload_mod(
         ) from exc
     except HTTPException:
         raise
+    except OperationalError as exc:
+        logger.exception("Database unavailable during mod metadata create")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable",
+        ) from exc
     except Exception as exc:
         logger.exception("mod metadata create failed")
         raise HTTPException(
