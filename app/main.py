@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -36,6 +37,13 @@ async def global_exception_handler(request: Request, exc: Exception):
     """Handle unexpected exceptions globally."""
     if isinstance(exc, HTTPException):
         raise exc
+
+    if isinstance(exc, OperationalError):
+        logger.exception("Database operation failed")
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Database temporarily unavailable"},
+        )
 
     logger.exception("Unhandled exception")
     return JSONResponse(
@@ -89,7 +97,21 @@ def root():
     }
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.api_route("/ready", methods=["GET", "HEAD"])
+def ready():
+    """Readiness endpoint that verifies database connectivity."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ready"}
+    except OperationalError:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Database temporarily unavailable"},
+        )
