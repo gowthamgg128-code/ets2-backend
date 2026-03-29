@@ -2,7 +2,7 @@
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import QueuePool
 from .config import get_settings
 
 settings = get_settings()
@@ -32,7 +32,12 @@ engine = create_engine(
     database_url,
     echo=settings.DEBUG,
     connect_args=_connect_args,
-    poolclass=NullPool,   # ← THE KEY FIX: no pool, fresh connection per request
+    poolclass=QueuePool,
+    pool_size=3,
+    max_overflow=2,
+    pool_timeout=10,
+    pool_recycle=300,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(
