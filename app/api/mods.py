@@ -1,8 +1,11 @@
 """Mods API endpoints."""
 import logging
+from threading import Lock
+from time import monotonic
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,12 +18,39 @@ from app.services.storage import generate_download_url
 router = APIRouter(prefix="/mods", tags=["mods"])
 logger = logging.getLogger(__name__)
 
+_MODS_CACHE_TTL_SECONDS = 45
+_mods_cache_lock = Lock()
+_mods_cache_expires_at = 0.0
+_mods_cache_payload: list[ModListResponse] | None = None
+
 
 @router.get("", response_model=list[ModListResponse])
 def list_mods(db: Session = Depends(get_db)):
     """Get all active mods."""
-    mods = db.query(Mod).filter(Mod.is_active == True).all()
-    return mods
+    global _mods_cache_expires_at, _mods_cache_payload
+
+    now = monotonic()
+    with _mods_cache_lock:
+        if _mods_cache_payload is not None and now < _mods_cache_expires_at:
+            return _mods_cache_payload
+
+    try:
+        mods = db.query(Mod).filter(Mod.is_active == True).all()
+    except OperationalError:
+        with _mods_cache_lock:
+            if _mods_cache_payload is not None and monotonic() < _mods_cache_expires_at:
+                return _mods_cache_payload
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable",
+        )
+
+    payload = [ModListResponse.model_validate(mod) for mod in mods]
+    with _mods_cache_lock:
+        _mods_cache_payload = payload
+        _mods_cache_expires_at = monotonic() + _MODS_CACHE_TTL_SECONDS
+
+    return payload
 
 
 @router.get("/{mod_id}/download", response_model=ModDownloadResponse)
