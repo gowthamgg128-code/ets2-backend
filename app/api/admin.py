@@ -290,15 +290,21 @@ def create_upload_target(
     return UploadTargetResponse(**upload)
 
 
-@router.get("/mod-requests", response_model=list[ModRequestResponse])
+@router.get("/mod-requests")
 def get_mod_requests(
     current_admin: Admin = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    """Get all mod requests."""
+    """Get all mod requests with mod name and description."""
+
     requests = db.query(ModRequest).all()
-    response_items: list[ModRequestResponse] = []
+    response_items = []
+
     for mod_request in requests:
+        # 🔥 Get mod details
+        mod = db.query(Mod).filter(Mod.id == mod_request.mod_id).first()
+
+        # 🔐 License key logic (same as before)
         license_key = None
         if mod_request.pc_id:
             deterministic_key = _build_deterministic_key(
@@ -308,6 +314,7 @@ def get_mod_requests(
             existing_key = db.query(LicenseKey).filter(
                 LicenseKey.key == deterministic_key
             ).first()
+
             if existing_key:
                 license_key = existing_key.key
             else:
@@ -315,18 +322,23 @@ def get_mod_requests(
                 if legacy_key:
                     license_key = legacy_key.key
 
+        # ✅ New response
         response_items.append(
-            ModRequestResponse(
-                id=mod_request.id,
-                mod_id=mod_request.mod_id,
-                user_name=mod_request.user_name,
-                phone=mod_request.phone,
-                pc_id=mod_request.pc_id,
-                status=mod_request.status.title(),
-                created_at=mod_request.created_at,
-                license_key=license_key,
-            )
+            {
+                "id": str(mod_request.id),
+                "user_name": mod_request.user_name,
+                "phone": mod_request.phone,
+                "pc_id": mod_request.pc_id,
+                "status": mod_request.status.title(),
+
+                # 🔥 NEW
+                "mod_name": mod.name if mod else "Unknown",
+                "description": mod.description if mod else "",
+
+                "license_key": license_key,
+            }
         )
+
     return response_items
 
 
