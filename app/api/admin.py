@@ -326,6 +326,7 @@ def get_mod_requests(
         response_items.append(
             {
                 "id": str(mod_request.id),
+                "mod_id": str(mod_request.mod_id),
                 "user_name": mod_request.user_name,
                 "phone": mod_request.phone,
                 "pc_id": mod_request.pc_id,
